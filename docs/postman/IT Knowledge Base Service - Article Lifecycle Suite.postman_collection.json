@@ -1,0 +1,2857 @@
+{
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "exec": [
+          "// Automatically generate standard W3C traceparent (ADR-010) and X-Trace-Id",
+          "function generateHex(len) {",
+          "    let result = '';",
+          "    const chars = '0123456789abcdef';",
+          "    for (let i = 0; i < len; i++) {",
+          "        result += chars.charAt(Math.floor(Math.random() * chars.length));",
+          "    }",
+          "    return result;",
+          "}",
+          "const traceId = generateHex(32);",
+          "const spanId = generateHex(16);",
+          "const traceparent = `00-${traceId}-${spanId}-01`;",
+          "pm.request.headers.upsert({ key: 'traceparent', value: traceparent });",
+          "pm.request.headers.upsert({ key: 'X-Trace-Id', value: traceId });",
+          "pm.environment.set('currentTraceId', traceId);"
+        ],
+        "type": "text/javascript"
+      }
+    }
+  ],
+  "info": {
+    "_exporter_id": "39879181",
+    "_postman_id": "a5b7d9e1-6f8a-4c0b-9d2e-3f4a5b6c7d8e",
+    "description": "Enterprise-grade E2E Postman Suite for the IT Knowledge Base Service Domain (BIAN-aligned, ADR-001/005/013/019/030/031/032/033). An author drafts an article (keywords normalised, linked to a problem), updates it, submits it, and shows the review rules: nobody publishes or returns their own article (409), a return needs a comment, a returned article is edited and submitted again, and a different reviewer publishes it. The text search (q) finds it by a word of its body and finds nothing for a word that is nowhere, and the collection filters by problem. A new version of the published article is a new draft with the same key (a second one at the same time is refused with 409), and publishing it retires version 1 as SUPERSEDED; the versions and the audit ledger read in order. A second folder proves the two audiences: a REQUESTER reads only published public articles, without the people and links (internal, draft and retired ones answer 404), searches only inside that set whatever they ask, and is refused (403 ERR-KNB-00403) on every staff route. Negative cases cover validation, illegal transitions (409), tenant isolation and the absence of DELETE, with RFC 7807 error_code assertions. It files its own articles under its own generated tenant id (kbOrganisationId) and two generated people (kbAuthorId, kbReviewerId), so it needs no organisationId from the Party Reference Data Directory.",
+    "name": "IT Knowledge Base Service - Article Lifecycle Suite",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "item": [
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Health status is UP', () => pm.expect(pm.response.json().status).to.eql('UP'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Health Check (Aggregated)",
+          "request": {
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ],
+              "raw": "{{base_url}}/health"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Liveness status is UP or UNKNOWN (no probe contributors registered)', () => pm.expect(['UP', 'UNKNOWN']).to.include(pm.response.json().status));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Liveness Probe",
+          "request": {
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health",
+                "liveness"
+              ],
+              "raw": "{{base_url}}/health/liveness"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Readiness status is UP', () => pm.expect(pm.response.json().status).to.eql('UP'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Readiness Probe",
+          "request": {
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health",
+                "readiness"
+              ],
+              "raw": "{{base_url}}/health/readiness"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Contains JVM metrics', () => pm.expect(pm.response.text()).to.include('jvm_memory'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Prometheus Metrics",
+          "request": {
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "prometheus"
+              ],
+              "raw": "{{base_url}}/prometheus"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns Swagger UI HTML', () => pm.expect(pm.response.text()).to.include('swagger-ui'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "Swagger UI",
+          "request": {
+            "header": [],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "swagger-ui",
+                "index.html"
+              ],
+              "raw": "{{base_url}}/swagger-ui/index.html"
+            }
+          }
+        }
+      ],
+      "name": "00. Infrastructure & Telemetry"
+    },
+    {
+      "item": [
+        {
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.environment.set('kbOrganisationId', pm.variables.replaceIn('{{$guid}}'));",
+                  "pm.environment.set('kbAuthorId', 'author-' + pm.variables.replaceIn('{{$guid}}'));",
+                  "pm.environment.set('kbReviewerId', 'reviewer-' + pm.variables.replaceIn('{{$guid}}'));",
+                  "pm.environment.set('kbUserId', pm.variables.replaceIn('{{$guid}}'));",
+                  "pm.environment.set('kbProblemId', pm.variables.replaceIn('{{$guid}}'));"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('DRAFT, version 1, key is its own id, keywords normalised, author is the caller', () => {",
+                  "    pm.expect(json.status).to.eql('DRAFT');",
+                  "    pm.expect(json.version).to.eql(1);",
+                  "    pm.expect(json.articleKey).to.eql(json.id);",
+                  "    pm.expect(json.keywords).to.have.members(['switch', 'firmware']);",
+                  "    pm.expect(json.authorId).to.eql(pm.environment.get('kbAuthorId'));",
+                  "});",
+                  "pm.environment.set('articleId', json.id);",
+                  "pm.environment.set('articleKey', json.articleKey);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "01. Initiate Article (author, DRAFT, PUBLIC, keywords normalised, one related problem)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Switch drops packets\",\n  \"body\": \"Reboot the switch every Sunday\",\n  \"category\": \"NETWORK\",\n  \"keywords\": [\"Switch\", \" Firmware \"],\n  \"visibility\": \"PUBLIC\",\n  \"relatedProblemIds\": [\"{{kbProblemId}}\"]\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Same article', () => pm.expect(pm.response.json().id).to.eql(pm.environment.get('articleId')));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "02. Retrieve Article By ID",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{articleId}}",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{articleId}}/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204 No Content', () => pm.response.to.have.status(204));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "03. Update the DRAFT (204)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Switch drops packets\",\n  \"body\": \"Reboot the switch every Sunday after the firmware 2.1 leak\",\n  \"category\": \"NETWORK\",\n  \"keywords\": [\"switch\", \"firmware\"],\n  \"visibility\": \"PUBLIC\",\n  \"relatedProblemIds\": [\"{{kbProblemId}}\"]\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{articleId}}",
+                "update"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{articleId}}/update"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204 No Content', () => pm.response.to.have.status(204));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "04. Control: submit (DRAFT -> IN_REVIEW)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{articleId}}",
+                "control",
+                "submit"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{articleId}}/control/submit"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-KNB-00409', () => {",
+                  "    pm.expect(json.status).to.eql(409);",
+                  "    pm.expect(json.error_code).to.eql('ERR-KNB-00409');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "05. Update an article in review is refused (409)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"t\",\n  \"body\": \"b\",\n  \"visibility\": \"PUBLIC\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{articleId}}",
+                "update"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{articleId}}/update"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-KNB-00409', () => {",
+                  "    pm.expect(json.status).to.eql(409);",
+                  "    pm.expect(json.error_code).to.eql('ERR-KNB-00409');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "06. The author cannot publish their own article (409, segregation of duties)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{articleId}}",
+                "control",
+                "publish"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{articleId}}/control/publish"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-KNB-00409', () => {",
+                  "    pm.expect(json.status).to.eql(409);",
+                  "    pm.expect(json.error_code).to.eql('ERR-KNB-00409');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "07. The author cannot return their own article either (409)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"comment\": \"fine\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{articleId}}",
+                "control",
+                "return"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{articleId}}/control/return"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "08. Return needs a comment (400)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"comment\": \"\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbReviewerId}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{articleId}}",
+                "control",
+                "return"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{articleId}}/control/return"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204 No Content', () => pm.response.to.have.status(204));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "09. The reviewer returns it with a comment (IN_REVIEW -> DRAFT)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"comment\": \"Say which firmware version leaks\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbReviewerId}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{articleId}}",
+                "control",
+                "return"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{articleId}}/control/return"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Status is DRAFT', () => pm.expect(pm.response.json().status).to.eql('DRAFT'));",
+                  "pm.test('Review comment kept', () => { const json = pm.response.json(); pm.expect(json.reviewComment).to.eql('Say which firmware version leaks'); pm.expect(json.reviewerId).to.eql(pm.environment.get('kbReviewerId')); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "10. Retrieve (DRAFT again, with the review comment and the reviewer)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{articleId}}",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{articleId}}/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204 No Content', () => pm.response.to.have.status(204));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "11. The author fixes it (204)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Switch drops packets\",\n  \"body\": \"Firmware 2.1 leaks buffers: reboot the switch every Sunday\",\n  \"category\": \"NETWORK\",\n  \"keywords\": [\"switch\", \"firmware\"],\n  \"visibility\": \"PUBLIC\",\n  \"relatedProblemIds\": [\"{{kbProblemId}}\"]\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{articleId}}",
+                "update"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{articleId}}/update"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204 No Content', () => pm.response.to.have.status(204));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "12. Control: submit again",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{articleId}}",
+                "control",
+                "submit"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{articleId}}/control/submit"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204 No Content', () => pm.response.to.have.status(204));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "13. Control: the reviewer publishes (IN_REVIEW -> PUBLISHED)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbReviewerId}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{articleId}}",
+                "control",
+                "publish"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{articleId}}/control/publish"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Status is PUBLISHED', () => pm.expect(pm.response.json().status).to.eql('PUBLISHED'));",
+                  "pm.test('Published, no old comment', () => { const json = pm.response.json(); pm.expect(json.publishedAt).to.not.be.undefined; pm.expect(json.reviewComment).to.be.undefined; });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "14. Retrieve (PUBLISHED, the old review comment cleared by the new submission)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{articleId}}",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{articleId}}/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Found', () => pm.expect(pm.response.json().map(a => a.id)).to.include(pm.environment.get('articleId')));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "15. Search by text (q=firmware) finds it by a word of its body",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "retrieve"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "firmware"
+                }
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/retrieve?q=firmware"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Nothing', () => pm.expect(pm.response.json()).to.eql([]));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "16. Search for a word that is nowhere finds nothing",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "retrieve"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "nonexistentterm"
+                }
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/retrieve?q=nonexistentterm"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Exactly this article', () => pm.expect(pm.response.json().map(a => a.id)).to.eql([pm.environment.get('articleId')]));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "17. What do we know about this problem (collection, by problemId)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "retrieve"
+              ],
+              "query": [
+                {
+                  "key": "problemId",
+                  "value": "{{kbProblemId}}"
+                }
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/retrieve?problemId={{kbProblemId}}"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201 Created', () => pm.response.to.have.status(201));",
+                  "const json = pm.response.json();",
+                  "pm.test('Version 2 of the same key, a draft authored by who asked', () => {",
+                  "    pm.expect(json.version).to.eql(2);",
+                  "    pm.expect(json.articleKey).to.eql(pm.environment.get('articleKey'));",
+                  "    pm.expect(json.status).to.eql('DRAFT');",
+                  "    pm.expect(json.authorId).to.eql(pm.environment.get('kbReviewerId'));",
+                  "    pm.expect(json.id).to.not.eql(pm.environment.get('articleId'));",
+                  "});",
+                  "pm.environment.set('articleV2Id', json.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "18. Start a new version (PUBLISHED -> a new DRAFT, version 2, same key)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbReviewerId}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{articleId}}",
+                "version",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{articleId}}/version/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-KNB-00409', () => {",
+                  "    pm.expect(json.status).to.eql(409);",
+                  "    pm.expect(json.error_code).to.eql('ERR-KNB-00409');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "19. A second new version of the same article is refused (409): version 2 already exists",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{articleId}}",
+                "version",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{articleId}}/version/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204 No Content', () => pm.response.to.have.status(204));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "20. Version 2 is submitted by its author (the reviewer of version 1)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbReviewerId}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{articleV2Id}}",
+                "control",
+                "submit"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{articleV2Id}}/control/submit"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204 No Content', () => pm.response.to.have.status(204));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "21. The author of version 1 publishes version 2 (allowed: they did not write it)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{articleV2Id}}",
+                "control",
+                "publish"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{articleV2Id}}/control/publish"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Oldest first, the older one retired, the newer one serving', () => {",
+                  "    pm.expect(json.map(a => a.version)).to.eql([1, 2]);",
+                  "    pm.expect(json.map(a => a.status)).to.eql(['RETIRED', 'PUBLISHED']);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "22. Versions (version 1 is retired as SUPERSEDED, version 2 is published)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{articleId}}",
+                "versions",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{articleId}}/versions/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('Ledger reads in order', () => pm.expect(json.map(e => e.action)).to.eql(['INITIATED', 'UPDATED', 'SUBMITTED', 'RETURNED', 'UPDATED', 'SUBMITTED', 'PUBLISHED', 'SUPERSEDED']));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "23. Audit ledger of version 1 (review, publication and supersession, in order)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{articleId}}",
+                "audit-log",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{articleId}}/audit-log/retrieve"
+            }
+          }
+        }
+      ],
+      "name": "01. Article Lifecycle, Review & Versions (BIAN Behavior Qualifiers)"
+    },
+    {
+      "item": [
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.environment.set('internalId', pm.response.json().id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "01. Setup: an INTERNAL article, written, submitted and published",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Core router credentials rotation\",\n  \"body\": \"Rotate through the vault, never by email\",\n  \"category\": \"NETWORK\",\n  \"keywords\": [\"router\"],\n  \"visibility\": \"INTERNAL\",\n  \"relatedProblemIds\": [\"{{kbProblemId}}\"]\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204 No Content', () => pm.response.to.have.status(204));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "02. Setup: submit it",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{internalId}}",
+                "control",
+                "submit"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{internalId}}/control/submit"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204 No Content', () => pm.response.to.have.status(204));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "03. Setup: publish it",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbReviewerId}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{internalId}}",
+                "control",
+                "publish"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{internalId}}/control/publish"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "const json = pm.response.json();",
+                  "pm.test('The text, and no people or links', () => {",
+                  "    pm.expect(json.body).to.include('Firmware 2.1');",
+                  "    pm.expect(json.authorId).to.be.undefined;",
+                  "    pm.expect(json.reviewerId).to.be.undefined;",
+                  "    pm.expect(json.relatedProblemIds).to.be.undefined;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "04. A REQUESTER reads the published PUBLIC article, without the people and links",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbUserId}}"
+              },
+              {
+                "key": "X-Role",
+                "value": "REQUESTER"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{articleV2Id}}",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{articleV2Id}}/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-KNB-00404', () => {",
+                  "    pm.expect(json.status).to.eql(404);",
+                  "    pm.expect(json.error_code).to.eql('ERR-KNB-00404');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "05. A REQUESTER cannot read an INTERNAL article even when published (404)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbUserId}}"
+              },
+              {
+                "key": "X-Role",
+                "value": "REQUESTER"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{internalId}}",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{internalId}}/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-KNB-00404', () => {",
+                  "    pm.expect(json.status).to.eql(404);",
+                  "    pm.expect(json.error_code).to.eql('ERR-KNB-00404');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "06. A REQUESTER cannot read a retired version (404)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbUserId}}"
+              },
+              {
+                "key": "X-Role",
+                "value": "REQUESTER"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{articleId}}",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{articleId}}/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Exactly the published public one', () => pm.expect(pm.response.json().map(a => a.id)).to.eql([pm.environment.get('articleV2Id')]));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "07. A REQUESTER searches: only published public articles, whatever they ask for",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbUserId}}"
+              },
+              {
+                "key": "X-Role",
+                "value": "REQUESTER"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "retrieve"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "firmware"
+                },
+                {
+                  "key": "status",
+                  "value": "DRAFT"
+                },
+                {
+                  "key": "visibility",
+                  "value": "INTERNAL"
+                },
+                {
+                  "key": "authorId",
+                  "value": "{{kbAuthorId}}"
+                }
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/retrieve?q=firmware&status=DRAFT&visibility=INTERNAL&authorId={{kbAuthorId}}"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Both published articles', () => pm.expect(pm.response.json().map(a => a.id)).to.include.members([pm.environment.get('articleV2Id'), pm.environment.get('internalId')]));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "08. Staff search sees them all, the internal one included",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "retrieve"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PUBLISHED"
+                }
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/retrieve?status=PUBLISHED"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 403', () => pm.response.to.have.status(403));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-KNB-00403', () => {",
+                  "    pm.expect(json.status).to.eql(403);",
+                  "    pm.expect(json.error_code).to.eql('ERR-KNB-00403');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "09. A REQUESTER cannot write an article (403)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Sneaky\",\n  \"body\": \"Not allowed\",\n  \"category\": \"NETWORK\",\n  \"keywords\": [],\n  \"visibility\": \"PUBLIC\",\n  \"relatedProblemIds\": [\"{{kbProblemId}}\"]\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbUserId}}"
+              },
+              {
+                "key": "X-Role",
+                "value": "REQUESTER"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 403', () => pm.response.to.have.status(403));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-KNB-00403', () => {",
+                  "    pm.expect(json.status).to.eql(403);",
+                  "    pm.expect(json.error_code).to.eql('ERR-KNB-00403');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "10. A REQUESTER cannot publish (403)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbUserId}}"
+              },
+              {
+                "key": "X-Role",
+                "value": "REQUESTER"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{articleV2Id}}",
+                "control",
+                "publish"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{articleV2Id}}/control/publish"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 403', () => pm.response.to.have.status(403));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-KNB-00403', () => {",
+                  "    pm.expect(json.status).to.eql(403);",
+                  "    pm.expect(json.error_code).to.eql('ERR-KNB-00403');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "11. A REQUESTER cannot retire (403)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbUserId}}"
+              },
+              {
+                "key": "X-Role",
+                "value": "REQUESTER"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{articleV2Id}}",
+                "control",
+                "retire"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{articleV2Id}}/control/retire"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 403', () => pm.response.to.have.status(403));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-KNB-00403', () => {",
+                  "    pm.expect(json.status).to.eql(403);",
+                  "    pm.expect(json.error_code).to.eql('ERR-KNB-00403');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "12. A REQUESTER cannot start a version (403)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbUserId}}"
+              },
+              {
+                "key": "X-Role",
+                "value": "REQUESTER"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{articleV2Id}}",
+                "version",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{articleV2Id}}/version/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 403', () => pm.response.to.have.status(403));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-KNB-00403', () => {",
+                  "    pm.expect(json.status).to.eql(403);",
+                  "    pm.expect(json.error_code).to.eql('ERR-KNB-00403');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "13. A REQUESTER cannot read the versions (403)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbUserId}}"
+              },
+              {
+                "key": "X-Role",
+                "value": "REQUESTER"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{articleV2Id}}",
+                "versions",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{articleV2Id}}/versions/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 403', () => pm.response.to.have.status(403));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-KNB-00403', () => {",
+                  "    pm.expect(json.status).to.eql(403);",
+                  "    pm.expect(json.error_code).to.eql('ERR-KNB-00403');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "14. A REQUESTER cannot read the audit trail (403)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbUserId}}"
+              },
+              {
+                "key": "X-Role",
+                "value": "REQUESTER"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{articleV2Id}}",
+                "audit-log",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{articleV2Id}}/audit-log/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204 No Content', () => pm.response.to.have.status(204));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "15. Staff retire the internal article (terminal)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{internalId}}",
+                "control",
+                "retire"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{internalId}}/control/retire"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-KNB-00409', () => {",
+                  "    pm.expect(json.status).to.eql(409);",
+                  "    pm.expect(json.error_code).to.eql('ERR-KNB-00409');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "16. A retired article takes no new version (409)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{internalId}}",
+                "version",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{internalId}}/version/initiate"
+            }
+          }
+        }
+      ],
+      "name": "02. Two Audiences (REQUESTER)"
+    },
+    {
+      "item": [
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "01. Initiate - Blank Title (400)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"\",\n  \"body\": \"b\",\n  \"visibility\": \"PUBLIC\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "02. Initiate - Missing Visibility (400)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"t\",\n  \"body\": \"b\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "03. Initiate - Unknown Visibility Value (400)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"t\",\n  \"body\": \"b\",\n  \"visibility\": \"SECRET\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "04. Initiate - A blank keyword (400)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"t\",\n  \"body\": \"b\",\n  \"keywords\": [\" \"],\n  \"visibility\": \"PUBLIC\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "05. Initiate - Missing X-Tenant-Id (400)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"t\",\n  \"body\": \"b\",\n  \"visibility\": \"PUBLIC\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.environment.set('negArticleId', pm.response.json().id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "06. Setup: a fresh draft for the state-machine checks",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Printer queue stalls\",\n  \"body\": \"Restart the spooler\",\n  \"category\": \"NETWORK\",\n  \"keywords\": [],\n  \"visibility\": \"PUBLIC\",\n  \"relatedProblemIds\": [\"{{kbProblemId}}\"]\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-KNB-00409', () => {",
+                  "    pm.expect(json.status).to.eql(409);",
+                  "    pm.expect(json.error_code).to.eql('ERR-KNB-00409');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "07. Publish a DRAFT is an illegal transition (409)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbReviewerId}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{negArticleId}}",
+                "control",
+                "publish"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{negArticleId}}/control/publish"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-KNB-00409', () => {",
+                  "    pm.expect(json.status).to.eql(409);",
+                  "    pm.expect(json.error_code).to.eql('ERR-KNB-00409');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "08. Return a DRAFT is an illegal transition (409)",
+          "request": {
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"comment\": \"fix\"\n}"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbReviewerId}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{negArticleId}}",
+                "control",
+                "return"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{negArticleId}}/control/return"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-KNB-00409', () => {",
+                  "    pm.expect(json.status).to.eql(409);",
+                  "    pm.expect(json.error_code).to.eql('ERR-KNB-00409');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "09. A new version of a DRAFT is refused (409): only a published article has versions",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "POST",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{negArticleId}}",
+                "version",
+                "initiate"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{negArticleId}}/version/initiate"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204 No Content', () => pm.response.to.have.status(204));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "10. Submit",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{negArticleId}}",
+                "control",
+                "submit"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{negArticleId}}/control/submit"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-KNB-00409', () => {",
+                  "    pm.expect(json.status).to.eql(409);",
+                  "    pm.expect(json.error_code).to.eql('ERR-KNB-00409');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "11. Submit again is an illegal transition (409)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{negArticleId}}",
+                "control",
+                "submit"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{negArticleId}}/control/submit"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204 No Content', () => pm.response.to.have.status(204));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "12. Retire (an article in review can be withdrawn)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{negArticleId}}",
+                "control",
+                "retire"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{negArticleId}}/control/retire"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-KNB-00409', () => {",
+                  "    pm.expect(json.status).to.eql(409);",
+                  "    pm.expect(json.error_code).to.eql('ERR-KNB-00409');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "13. Retire again is an illegal transition (409)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "PUT",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{negArticleId}}",
+                "control",
+                "retire"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{negArticleId}}/control/retire"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-KNB-00404', () => {",
+                  "    pm.expect(json.status).to.eql(404);",
+                  "    pm.expect(json.error_code).to.eql('ERR-KNB-00404');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "14. Retrieve - Non-existent UUID (404)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "00000000-0000-0000-0000-000000000000",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/00000000-0000-0000-0000-000000000000/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "15. Retrieve - Malformed UUID Path (400)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "not-a-uuid",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/not-a-uuid/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-KNB-00404', () => {",
+                  "    pm.expect(json.status).to.eql(404);",
+                  "    pm.expect(json.error_code).to.eql('ERR-KNB-00404');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "16. Retrieve - Another tenant answers like a missing one (404)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "00000000-0000-0000-0000-000000000001"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{articleId}}",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{articleId}}/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Nothing', () => pm.expect(pm.response.json()).to.eql([]));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "17. Search - Another tenant finds nothing",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "00000000-0000-0000-0000-000000000001"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "retrieve"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "firmware"
+                }
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/retrieve?q=firmware"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));",
+                  "const json = pm.response.json();",
+                  "pm.test('RFC 7807 error_code is ERR-KNB-00404', () => {",
+                  "    pm.expect(json.status).to.eql(404);",
+                  "    pm.expect(json.error_code).to.eql('ERR-KNB-00404');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "18. Audit log - Another tenant (404)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "00000000-0000-0000-0000-000000000001"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "GET",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{negArticleId}}",
+                "audit-log",
+                "retrieve"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{negArticleId}}/audit-log/retrieve"
+            }
+          }
+        },
+        {
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Not allowed', () => pm.expect([404, 405]).to.include(pm.response.code));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "name": "19. Delete - There is no DELETE (404 or 405)",
+          "request": {
+            "header": [
+              {
+                "key": "X-Tenant-Id",
+                "value": "{{kbOrganisationId}}"
+              },
+              {
+                "key": "X-Executor",
+                "value": "{{kbAuthorId}}"
+              }
+            ],
+            "method": "DELETE",
+            "url": {
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "it-knowledge-base",
+                "v1",
+                "{{negArticleId}}"
+              ],
+              "raw": "{{base_url}}/it-knowledge-base/v1/{{negArticleId}}"
+            }
+          }
+        }
+      ],
+      "name": "03. Negative Tests & Guarantees"
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8101"
+    }
+  ]
+}
